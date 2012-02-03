@@ -2,7 +2,7 @@ this library is Patricia Trie specialized for strings.
 
 each branches has maximum 128 node or branch. (0x00-0x7f)
 
-figure out trie stored bellow strings:
+insert bellow strings to trie:
   "foo"
   "foobar1"
   "foobar2"
@@ -10,6 +10,7 @@ figure out trie stored bellow strings:
   "bar"
   "baz"
 
+structure:
    [branch ("")]
     |
     |- 'b' -> [branch ("a")]
