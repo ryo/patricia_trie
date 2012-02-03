@@ -41,5 +41,3 @@ benchmark_result(benchmark_t *benchmark)
 	    (unsigned long)benchmark->t_total.tv_sec,
 	    (unsigned long)benchmark->t_total.tv_nsec);
 }
-
-

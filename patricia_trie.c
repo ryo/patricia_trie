@@ -1,4 +1,4 @@
-/*	$Id: patricia_trie.c,v 1.12 2012/02/02 08:29:39 ryo Exp $	*/
+/*	$Id: patricia_trie.c,v 1.14 2012/02/03 07:08:29 ryo Exp $	*/
 /*-
  * Copyright (c) 2011 SHIMIZU Ryo <ryo@nerv.org>
  * All rights reserved.
@@ -27,33 +27,43 @@
 
 #include "patricia_trie.h"
 
-static struct patricia_trie *patricia_newbranch(const char *, void *);
-static void *patricia_insert0(struct patricia_trie **, const char *, void *,
+static struct patricia_trie_node *patricia_newbranch(const char *, void *);
+static void *patricia_insert0(struct patricia_trie_node **, const char *, void *,
                               int);
-static void **patricia_find0(struct patricia_trie *, const char *,
-                             struct patricia_trie **);
-static void patricia_cleanup(struct patricia_trie *);
+static void **patricia_find0(struct patricia_trie_node *, const char *,
+                             struct patricia_trie_node **);
+static void patricia_cleanup(struct patricia_trie_node *);
 
 struct patricia_trie *
 patricia_new()
 {
 	struct patricia_trie *trieroot;
+	struct patricia_trie_node *trienode;
 
-	trieroot = patricia_newbranch(NULL, NULL);
-	if (trieroot != NULL)
-		trieroot->pt_parent = NULL;
+	trieroot = malloc(sizeof(struct patricia_trie), M_TEMP,
+	    M_WAITOK | M_ZERO);
+	if (trieroot == NULL)
+		return NULL;
+
+	trienode = patricia_newbranch(NULL, NULL);
+	if (trienode == NULL) {
+		free(trieroot, M_TEMP);
+		return NULL;
+	}
+	trienode->pt_parent = NULL;
+	trieroot->root = trienode;
 
 	return trieroot;
 }
 
-static struct patricia_trie *
+static struct patricia_trie_node *
 patricia_newbranch(const char *key, void *value)
 {
-	struct patricia_trie *trie;
+	struct patricia_trie_node *trie;
 	char *matchp;
 	unsigned char c;
 
-	trie = malloc(sizeof(struct patricia_trie), M_TEMP,
+	trie = malloc(sizeof(struct patricia_trie_node), M_TEMP,
 	    M_WAITOK | M_ZERO);
 
 	if (key != NULL) {
@@ -81,26 +91,24 @@ patricia_newbranch(const char *key, void *value)
 }
 
 void *
-patricia_insert(struct patricia_trie **trieroot_p, const char *key, void *value)
+patricia_insert(struct patricia_trie *trieroot, const char *key, void *value)
 {
-	return patricia_insert0(trieroot_p, key, value, 0);
+	return patricia_insert0(&trieroot->root, key, value, 0);
 }
 
 void *
-patricia_set(struct patricia_trie **trieroot_p, const char *key, void *value)
+patricia_set(struct patricia_trie *trieroot, const char *key, void *value)
 {
-	return patricia_insert0(trieroot_p, key, value, 1);
+	return patricia_insert0(&trieroot->root, key, value, 1);
 }
 
 static void *
-patricia_insert0(struct patricia_trie **trieroot_p, const char *key, void *value, int force)
+patricia_insert0(struct patricia_trie_node **trie_p, const char *key, void *value, int force)
 {
-	struct patricia_trie *trie, *trie_tmp;
-	struct patricia_trie **trie_p;
+	struct patricia_trie_node *trie, *trie_tmp;
 	const char *matchp;
 	unsigned char c, idx1, idx2;
 
-	trie_p = trieroot_p;
 	trie = *trie_p;
 
  trie_add_next:
@@ -212,7 +220,7 @@ patricia_insert0(struct patricia_trie **trieroot_p, const char *key, void *value
 
 				/* and continue to add "key10" */
 			}
-			trie_p = (struct patricia_trie **)&trie->pt_ptr[c];
+			trie_p = (struct patricia_trie_node **)&trie->pt_ptr[c];
 			trie = trie->pt_ptr[c];
 			goto trie_add_next;
 		}
@@ -275,9 +283,9 @@ patricia_insert0(struct patricia_trie **trieroot_p, const char *key, void *value
 		trie_tmp->pt_ptr[idx2] = value;
 	} else {
 		trie_tmp->pt_ptr[idx2] = patricia_newbranch(key + 1, value);
-		((struct patricia_trie *)trie_tmp->pt_ptr[idx2])->pt_parent =
+		((struct patricia_trie_node *)trie_tmp->pt_ptr[idx2])->pt_parent =
 		    trie_tmp;
-		((struct patricia_trie *)trie_tmp->pt_ptr[idx2])->pt_parentidx =
+		((struct patricia_trie_node *)trie_tmp->pt_ptr[idx2])->pt_parentidx =
 		    idx2;
 	}
 
@@ -295,8 +303,8 @@ patricia_insert0(struct patricia_trie **trieroot_p, const char *key, void *value
 }
 
 static void **
-patricia_find0(struct patricia_trie *trie, const char *key,
-               struct patricia_trie **trie_ref)
+patricia_find0(struct patricia_trie_node *trie, const char *key,
+               struct patricia_trie_node **trie_ref)
 {
 	const char *m;
 	unsigned char c;
@@ -333,9 +341,9 @@ patricia_find0(struct patricia_trie *trie, const char *key,
 }
 
 static void
-patricia_cleanup(struct patricia_trie *trie)
+patricia_cleanup(struct patricia_trie_node *trie)
 {
-	struct patricia_trie *parent, *trie2;
+	struct patricia_trie_node *parent, *trie2;
 	char *p;
 	int i;
 
@@ -367,7 +375,7 @@ patricia_cleanup(struct patricia_trie *trie)
 					break;
 
 			if (!TRIE_PTR_ISNODE(trie, i)) {
-				trie2 = (struct patricia_trie *)trie->pt_ptr[i];
+				trie2 = (struct patricia_trie_node *)trie->pt_ptr[i];
 
 				for (p = trie->pt_match; *p != '\0'; p++)
 					;
@@ -391,12 +399,12 @@ patricia_cleanup(struct patricia_trie *trie)
 }
 
 int
-patricia_delete(struct patricia_trie **trieroot_p, const char *key)
+patricia_delete(struct patricia_trie *trieroot, const char *key)
 {
-	struct patricia_trie *trie;
+	struct patricia_trie_node *trie;
 	void **ref;
 
-	ref = patricia_find0(*trieroot_p, key, &trie);
+	ref = patricia_find0(trieroot->root, key, &trie);
 	if (ref == NULL)
 		return -1;
 
@@ -409,11 +417,11 @@ patricia_delete(struct patricia_trie **trieroot_p, const char *key)
 }
 
 void *
-patricia_find(struct patricia_trie **trieroot_p, const char *key)
+patricia_find(struct patricia_trie *trieroot, const char *key)
 {
 	void **ref;
 
-	ref = patricia_find0(*trieroot_p, key, NULL);
+	ref = patricia_find0(trieroot->root, key, NULL);
 	if (ref == NULL)
 		return NULL;
 

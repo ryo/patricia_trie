@@ -101,47 +101,47 @@ main(int argc, char *argv[])
 		benchmark_cont(&bench_insert);
 		for (lineno = 1, line = filebuf; line < filebuf + size;
 		    line += strlen(line) + 1, lineno++) {
-			if (patricia_insert(&trieroot, line, (void *)lineno) == NULL) {
+			if (patricia_insert(trieroot, line, (void *)lineno) == NULL) {
 				fprintf(stderr, "patricia_insert: DUPLICATE KEY: <%s>\n", line);
 			}
 		}
 		benchmark_stop(&bench_insert);
 		if (vflag || (i + 1 == nloop)) {
-			printf("insert: %d lines, %d loop: ", lineno, i + 1);
+			printf("insert: %d lines, %d loop: ", lineno - 1, i + 1);
 			benchmark_result(&bench_insert);
 		}
 
 		if (dflag >= 2)
-			patricia_dump(&trieroot, 0);
+			patricia_dump(trieroot, 0);
 
 		benchmark_cont(&bench_find);
 		for (lineno = 1, line = filebuf; line < filebuf + size;
 		    line += strlen(line) + 1, lineno++) {
 
-			result = patricia_find(&trieroot, line);
+			result = patricia_find(trieroot, line);
 			if (result != (void *)lineno) {
 				fprintf(stderr, "patricia_find: ERROR: key <%s> has inserted %d, but %d\n", line, lineno, (int)result);
 			}
 		}
 		benchmark_stop(&bench_find);
 		if (vflag || (i + 1 == nloop)) {
-			printf("find:   %d lines, %d loop: ", lineno, i + 1);
+			printf("find:   %d lines, %d loop: ", lineno - 1, i + 1);
 			benchmark_result(&bench_find);
 		}
 
 		benchmark_cont(&bench_delete);
 		for (lineno = 1, line = filebuf; line < filebuf + size;
 		    line += strlen(line) + 1, lineno++) {
-			patricia_delete(&trieroot, line);
+			patricia_delete(trieroot, line);
 		}
 		benchmark_stop(&bench_delete);
 		if (vflag || (i + 1 == nloop)) {
-			printf("delete: %d lines, %d loop: ", lineno, i + 1);
+			printf("delete: %d lines, %d loop: ", lineno - 1, i + 1);
 			benchmark_result(&bench_delete);
 		}
 
 		if (dflag)
-			patricia_dump(&trieroot, 0);
+			patricia_dump(trieroot, 0);
 
 		if (vflag)
 			printf("\n");
