@@ -1,2 +1,97 @@
-This code is patricia-trie libraries in C.
-tested on NetBSD
+this library is Patricia Trie specialized for strings.
+
+each branches has maximum 128 node or branch. (0x00-0x7f)
+
+figure out trie stored bellow strings:
+  "foo"
+  "foobar1"
+  "foobar2"
+  "foobar3"
+  "bar"
+  "baz"
+
+   [branch ("")]
+    |
+    |- 'b' -> [branch ("a")]
+    |          |
+    |          |- 'r' -> <user value>
+    |          |- 'z' -> <user value>
+    |          |
+    |          :
+    |
+    |- 'f' -> [branch ("o")]
+    |          |
+    :          |- 'o' -> [branch "o"]
+               |          |- '\0' -> <user value>
+               :          |- 'b'  -> [branch ("ar")]
+                          |           |
+                          :           |- '1' -> <user value>
+                                      |- '2' -> <user value>
+                                      |- '3' -> <user value>
+                                      |
+                                      :
+
+[demo]
+# cat text 
+foo
+foobar1
+foobar2
+foobar3
+bar
+baz
+# ./patricia_test -dd text
+insert: 6 lines, 1 loop: 0.000004400 sec
+===========================================
+struct patricia_trie (ptr=0xbb501400) {
+  .pt_parent = 0x0
+  .pt_parentidx = 0x0
+  .pt_nlink = 2
+  .pt_match = ""
+  .pt_ptr[0x62('b')] = 0xbb502400 => {
+     struct patricia_trie (ptr=0xbb502400) {
+       .pt_parent = 0xbb501400
+       .pt_parentidx = 0x62
+       .pt_nlink = 2
+       .pt_match = "a"
+       .pt_ptr[0x72('r')] = 0x5 (VALUE)
+       .pt_ptr[0x7a('z')] = 0x6 (VALUE)
+     }
+  }
+  .pt_ptr[0x66('f')] = 0xbb501800 => {
+     struct patricia_trie (ptr=0xbb501800) {
+       .pt_parent = 0xbb501400
+       .pt_parentidx = 0x66
+       .pt_nlink = 1
+       .pt_match = "o"
+       .pt_ptr[0x6f('o')] = 0xbb501c00 => {
+          struct patricia_trie (ptr=0xbb501c00) {
+            .pt_parent = 0xbb501800
+            .pt_parentidx = 0x6f
+            .pt_nlink = 2
+            .pt_match = ""
+            .pt_ptr[0x00('')] = 0x1 (VALUE)
+            .pt_ptr[0x62('b')] = 0xbb502000 => {
+               struct patricia_trie (ptr=0xbb502000) {
+                 .pt_parent = 0xbb501c00
+                 .pt_parentidx = 0x62
+                 .pt_nlink = 3
+                 .pt_match = "ar"
+                 .pt_ptr[0x31('1')] = 0x2 (VALUE)
+                 .pt_ptr[0x32('2')] = 0x3 (VALUE)
+                 .pt_ptr[0x33('3')] = 0x4 (VALUE)
+               }
+            }
+          }
+       }
+     }
+  }
+}
+find:   6 lines, 1 loop: 0.000001048 sec
+delete: 6 lines, 1 loop: 0.000002724 sec
+===========================================
+struct patricia_trie (ptr=0xbb501400) {
+  .pt_parent = 0x0
+  .pt_parentidx = 0x0
+  .pt_nlink = 0
+  .pt_match = ""
+}
